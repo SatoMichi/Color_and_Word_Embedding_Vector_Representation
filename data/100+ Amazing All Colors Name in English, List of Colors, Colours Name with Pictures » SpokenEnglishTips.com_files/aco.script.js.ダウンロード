@@ -1,0 +1,1572 @@
+class Messenger {
+	constructor() {
+		this.messageList = [];
+		this.deletedList = [];
+
+		this.me = 1; // completely arbitrary id
+		this.them = 5; // and another one
+
+		this.onRecieve = message => console.log('Recieved: ' + message.text);
+		// this.onSend = message => console.log('Sent: ' + message.text);
+		this.onSend = message =>	console.log('Sent: ' + message.text);
+		
+		this.onDelete = message => console.log('Deleted: ' + message.text);
+	}
+	
+  
+
+	send(text = '', sendAfter) {
+		text = this.filter(text);
+
+		if (this.validate(text)) {
+			let message = {
+				user: this.me,
+				text: text,
+				time: new Date().getTime() 
+			};
+
+			this.messageList.push(message);
+			this.onSend(message, sendAfter);
+		}
+	}
+	
+	receive(text = '') {
+		text = this.filter(text);
+
+		if (this.validate(text)) {
+			let message = {
+				user: this.them,
+				text: text,
+				time: new Date().getTime() 
+			};
+
+			this.messageList.push(message);
+			this.onRecieve(message);
+		}
+	}
+	
+
+  
+  delete(index) {
+    index = index || this.messageLength - 1;
+
+    let deleted = this.messageLength.pop();
+
+    this.deletedList.push(deleted);
+    this.onDelete(deleted);
+  }
+
+  filter(input) {
+    let output = input.replace('bad input', 'good output'); // such amazing filter there right?
+    return output;
+  }
+
+  validate(input) {
+    return !!input.length; // an amazing example of validation I swear.
+  }
+
+}
+
+
+class BuildHTML {
+  constructor() {
+    this.messageWrapper = 'message';
+    this.circleWrapper = 'message-bubble';
+    this.textWrapper = 'message-text';
+
+    this.meClass = 'message-sent';
+    this.meEffect = 'none';
+
+    this.themClass = 'message-received';
+    this.themEffect = 'ripple';
+  }
+	
+  _build(text, who) {
+    var messageRewardHtml = '<div class="message-reward" style="display:none;">...</div>';
+    if(who === 'them') {
+      messageRewardHtml = "";
+    }
+    return `<div class="${this.messageWrapper} ${this[who + 'Class']}">
+		 					<div class="message-content" effect="${this[who + 'Effect']}">
+								<div class="${this.circleWrapper} animated fadeInUp">
+									<div class="${this.textWrapper}">...</div>
+									${messageRewardHtml}
+								</div>
+							</div>
+            </div>`;
+  }
+
+  me(text) {
+    return this._build(text, 'me');
+  }
+
+  them(text) {
+    return this._build(text, 'them');
+  }
+}
+
+
+
+
+function acoPlayAudio(text, func) {
+	text = text.replaceAll("acoDQ", "\"").replaceAll("acoSQ", "'");
+	jQuery.ajax({
+	   type: 'GET',
+     url: '/audio',
+	   data: {uid: userid, msg: text },
+		 dataType: 'json',
+    error: function(){
+      tipToErrorLoad();
+    },
+	 	 success: function (data) {
+			 var audio_url = data.audio_url;
+			 var audio = new Audio(audio_url);
+			 var playPromise = audio.play();
+			 if (playPromise !== undefined) {
+				 playPromise.then(function() {
+					 func();
+				 }).catch(function(error) {
+				 });
+			}
+	   }
+	});
+}
+
+function acoUpdateVoiceOverStatus() {
+  var newStatus = 0;
+  if(voiceOverStatus == 1) {
+    newStatus = 0;
+  } else {
+    newStatus = 1;
+  }
+  console.log("update voice over: " + newStatus);
+	jQuery.ajax({
+    type: 'GET',
+    url: '/update_voice_over_status',
+    data: {uid: userid, status: newStatus, mode: acoCurrentMode },
+    dataType: 'json',
+    error: function(){
+      tipToErrorLoad();
+    },
+	 	 success: function (data) {
+       if(data.code == 1) {
+         voiceOverStatus = newStatus;
+         if(voiceOverStatus == 1) {
+           acoHideMsgs();
+           lottieVoiceOverOn(() => {
+             $('#voice-over-status').html('<span class="material-icons-outlined">record_voice_over</span>');
+             acoReDisplayLastMsg();
+             let $last_text_elem = $('#content').find('.message').last().find('.message-text');
+             let lastBotMsg = $last_text_elem.text();
+             console.log("last bot msg: " + lastBotMsg);
+             acoPlayVoiceOver(lastBotMsg, "bot");
+           });
+         } else {
+           $('#voice-over-status').html('<span class="material-icons-outlined">voice_over_off</span>');
+           acoReDisplayLastMsg();
+         }
+       } else {
+ 				if(!checkAndSignup("Sign up FREE", "Sign up to unlock this feature", "unlock")) {
+ 				 return;
+ 				}
+       	checkProToContinue("voice_chat", "menu", false);
+       }
+	   } 
+	});
+}
+
+function acoHideMsgs() {
+  let $content = $('#content');
+  let $inputSection = $('#main-chat-input-section');
+  $content.hide();
+  $($inputSection).hide();
+}
+
+function acoReDisplayLastMsg() {
+  let $content = $('#content');
+  let $inputSection = $('#main-chat-input-section');
+  $content.hide();
+  $($inputSection).hide();
+  
+  setTimeout(function() {
+    $content.show();
+  }, 500);
+  
+  let $input = $('#input');
+  setTimeout(function() {
+    $($inputSection).show();
+    $input.focus();
+  }, 1500);
+}
+
+
+function acoPromiseVoiceOver(text, type) {
+  return new Promise((resolve, reject) => {
+  	text = text.replaceAll("acoDQ", "\"").replaceAll("acoSQ", "'");
+  	jQuery.ajax({
+      type: 'GET',
+      url: '/audio',
+      data: {uid: userid, cate: "voice_over", type: type, msg: text },
+      dataType: 'json',
+      error: function(){
+        tipToErrorLoad();
+        resolve(3);
+      },
+      success: function (data) {
+        var audio_url = data.audio_url;
+        var audio = new Audio(audio_url);
+        audio.addEventListener("ended", () => {
+          resolve(1);
+        });
+        audio.addEventListener("error", () => {
+          resolve(2);
+        });
+        audio.play();
+      }
+  	});
+  });
+}
+
+function acoLoadUserAudio(text) {
+	text = text.replaceAll("acoDQ", "\"").replaceAll("acoSQ", "'");
+	jQuery.ajax({
+    type: 'GET',
+    url: '/audio',
+    data: {uid: userid, cate: "voice_over", type: "user", msg: text },
+    dataType: 'json',
+    error: function(){
+      tipToErrorLoad();
+    },
+    success: function (data) {
+      var audio_url = data.audio_url;
+      acoUserAudio = new Audio(audio_url);
+      console.log("voice. loaded...");
+      acoUserAudio.load();
+	   }
+	});
+}
+
+function acoPromiseVoiceOverUser(userAudio) {
+  return new Promise((resolve, reject) => {
+    userAudio.addEventListener("ended", () => {
+      resolve(1);
+    });
+    userAudio.addEventListener("error", () => {
+      resolve(2);
+    });
+    userAudio.play();
+  });
+}
+
+function acoPlayVoiceOver(text, type) {
+	text = text.replaceAll("acoDQ", "\"").replaceAll("acoSQ", "'");
+	jQuery.ajax({
+    type: 'GET',
+    url: '/audio',
+    data: {uid: userid, cate: "voice_over", type: type, msg: text },
+    dataType: 'json',
+    error: function(){
+      tipToErrorLoad();
+    },
+    success: function (data) {
+      var audio_url = data.audio_url;
+      var audio = new Audio(audio_url);
+      console.log("voice....");
+      audio.play();
+	   }
+	});
+}
+
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function acoTranslate(text, lang, func) {
+  text = text.replaceAll("acoDQ", "\"").replaceAll("acoSQ", "'");
+  $("#text-chat-loader").show();
+  
+  jQuery.ajax({
+    type: 'GET',
+    url: '/translate',
+    data: {uid: userid, text: text, lang: lang},
+    dataType: 'json',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) {
+      $("#text-chat-loader").hide();
+			func(data);
+    }
+  });
+}
+
+var loadLanguagesProcessing = false;
+function acoLanguages(text) {
+	if(loadLanguagesProcessing) {
+		loadLanguagesProcessing = false;
+		return;
+	}
+	loadLanguagesProcessing = true;
+	
+  $("#text-chat-loader").show();
+  
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/languages", 
+		data: { uid: userid, mode: acoCurrentMode },
+		dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+		success: function (data) { 
+      $("#text-chat-loader").hide();
+			loadLanguagesProcessing = false;
+			let $wrapper = $(data);
+			$("body").append($wrapper);
+			activeRipple();
+      
+  		$('#langs-back-btn').on('click', e => {
+  			 acoRemoveWrapper($wrapper);
+  		 });
+       
+       if(userLang) {
+         $('#' + userLang).addClass("current");
+       }
+       
+       $(".lang").click((e) => {
+  			 acoRemoveWrapper($wrapper);
+         
+         let lang = e.currentTarget.id;
+         userLang = lang;
+         $(".lang").removeClass("current");
+         $('#' + userLang).addClass("current");
+         botMsgActions(text);
+          
+       });
+       
+    }
+  });
+}
+
+function botMsgActions(text) {
+  if(userLang == "") {
+    acoLanguages(text);
+    return;
+  }
+  
+  $("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/msg_actions", 
+    data: {uid: userid, type: 'bot', msg: text },
+    dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      $("#text-chat-loader").hide();
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+
+      $('#message_actions-back-btn').on('click', e => {
+        $wrapper.removeClass("slideInUp");
+        $wrapper.addClass("fadeOut");
+        setTimeout(function(){
+          $wrapper.remove();
+        }, 1000);
+      });
+       
+      $('#lang-btn').on('click', e => {
+        $wrapper.removeClass("slideInUp");
+        $wrapper.addClass("fadeOut");
+        setTimeout(function(){
+          $wrapper.remove();
+        }, 1000);
+        acoLanguages(text);
+      });
+			 
+      acoTranslate(text, userLang, function(data) {
+        $("#translation-loader").hide();
+        chatWithTranslation = 1;
+	      var translated_text = data.translated_text;
+	      $("#translated").text(translated_text);
+		    $("#translated").show();
+      });
+    }
+	});
+}
+
+function acoRemoveWrapper($wrapper) {
+ $wrapper.removeClass("fadeIn");
+ $wrapper.addClass("fadeOut");
+ setTimeout(function(){
+	 $wrapper.remove();
+ }, 1000);
+}
+
+var loadModesProcessing = false;
+function loadModes() {
+	if(loadModesProcessing) {
+		loadModesProcessing = false;
+		return;
+	}
+	loadModesProcessing = true;
+	
+  $("#text-chat-loader").show();
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/modes", 
+		data: { uid: userid, mode: acoCurrentMode },
+		dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+		success: function (data) { 
+			console.log("received");
+      $("#text-chat-loader").hide();
+			loadModesProcessing = false;
+			let $wrapper = $(data);
+			$("body").append($wrapper);
+			activeRipple();
+				
+	 		let $text_chat = $('#text-chat');
+	 		let $listening = $('#listening');
+	 		let $speaking = $('#speaking');
+	 		let $voice_chat = $('#voice-chat');
+	
+	 		switch (acoCurrentMode) {
+	 		  case 'text_chat':
+	 		    $text_chat.addClass("current");
+	 		    break;
+	 		  case 'listening':
+	 			$listening.addClass("current");
+	 			break;
+	 		  case 'speaking':
+	 		    $speaking.addClass("current");
+	 		    break;
+	 		  case 'voice_chat':
+	 		    $voice_chat.addClass("current");
+	 		    break;
+	 		  default:
+	 		    $text_chat.addClass("current");
+	 		}
+	
+	 		$text_chat.on('click', function(e) {
+ 			 	$text_chat.removeClass("current");
+ 			 	$listening.removeClass("current");
+ 			 	$speaking.removeClass("current");
+ 			 	$voice_chat.removeClass("current");
+	 			$(this).addClass("current");
+	 			location.href = "/widget?uid=" + userid + "&mode=text_chat";
+	 		});
+	
+	 		$listening.on('click', function(e) {
+				if(!checkAndSignup("Sign up FREE", "Sign up to unlock this feature", "unlock")) {
+         acoRemoveWrapper($wrapper);
+				 return;
+				}
+        
+        var unlocked = false;
+        if($listening.hasClass("unlocked")) {
+          unlocked = true;
+        }
+				
+      	let checkOK = checkProToContinue("listening", "menu", unlocked);
+				if(checkOK) {
+					$text_chat.removeClass("current");
+					$listening.removeClass("current");
+					$speaking.removeClass("current");
+					$voice_chat.removeClass("current");
+					$listening.addClass("current");
+				}
+ 			 	
+	 		});
+	
+	 		$speaking.on('click', function(e) {
+				if(!checkAndSignup("Sign up FREE", "Sign up to unlock this feature", "unlock")) {
+          acoRemoveWrapper($wrapper);
+					return;
+				}
+        
+        var speechSupport = checkAndDialogSpeechSupport("speaking");
+        if(!speechSupport) {
+          return;
+        }
+        
+        var unlocked = false;
+        if($speaking.hasClass("unlocked")) {
+          unlocked = true;
+        }
+			
+				let checkOK = checkProToContinue("speaking", "menu", unlocked);
+				if(checkOK) {
+					$text_chat.removeClass("current");
+					$listening.removeClass("current");
+					$speaking.removeClass("current");
+					$voice_chat.removeClass("current");
+					$speaking.addClass("current");
+				}
+	
+				
+	 		});
+	
+	 		$voice_chat.on('click', function(e) {
+				if(!checkAndSignup("Sign up FREE", "Sign up to unlock this feature", "unlock")) {
+          acoRemoveWrapper($wrapper);
+					return;
+				}
+        
+        var speechSupport = checkAndDialogSpeechSupport("voice_chat");
+        if(!speechSupport) {
+          return;
+        }
+        
+        var unlocked = false;
+        if($voice_chat.hasClass("unlocked")) {
+          unlocked = true;
+        }
+			
+				let checkOK = checkProToContinue("voice_chat", "menu", unlocked);
+				if(checkOK) {
+					$text_chat.removeClass("current");
+					$listening.removeClass("current");
+					$speaking.removeClass("current");
+					$voice_chat.removeClass("current");
+					$voice_chat.addClass("current");
+				}
+ 			 
+	 		});
+	
+		$('#modes-back-btn').on('click', e => {
+			 acoRemoveWrapper($wrapper);
+			 console.log("wrapper close");
+		 });
+      
+	   }
+	});
+}
+
+var loadEarningProcessing = false;
+function loadEarning(func = undefined) {
+	if(loadEarningProcessing) {
+		loadEarningProcessing = false;
+		return;
+	}
+	loadEarningProcessing = true;
+	$("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/earning", 
+    data: { uid: userid },
+    dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      $("#text-chat-loader").hide();
+      loadEarningProcessing = false;
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+			 
+      $('#earning-back-btn').on('click', 
+      e => {
+        $wrapper.removeClass("fadeIn");
+        $wrapper.addClass("fadeOut");
+        setTimeout(function(){
+          $wrapper.remove();
+          if(func !== undefined) {
+            func();
+          }
+        }, 1000);
+      });
+	   }
+	});
+}
+
+var loadAboutProcessing = false;
+function loadAbout() {
+	if(loadAboutProcessing) {
+		loadAboutProcessing = false;
+		return;
+	}
+	loadAboutProcessing = true;
+	$("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/about", 
+    data: { uid: userid },
+    dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      $("#text-chat-loader").hide();
+      loadAboutProcessing = false;
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+			 
+      let $player = $("#lottie-about");
+      if($player) {
+        $lottiePlayer = $player[0];
+        $lottiePlayer.addEventListener("ready", () => {
+          $lottiePlayer.play();
+          setTimeout(function() {
+            $($player).addClass('animated fadeOut');
+          }, 2600);
+        });
+      }
+       
+      $('#about-back-btn').on('click', 
+      e => {
+       acoRemoveWrapper($wrapper);
+      });
+	   }
+	});
+}
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min) + min); // The maximum is exclusive and the minimum is inclusive
+}
+
+function loadSessionEndBonus() {
+	window.parent.postMessage({'action': 'AcoCloseKeyboard'}, '*');
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/session_bonus_wheel", 
+		data: { uid: userid },
+		dataType: 'html',
+		success: function (data) { 
+			console.log("received");
+			let $wrapper = $(data);
+			$("body").append($wrapper);
+			activeRipple();
+			 
+			$('#bonus_wheel-back-btn').on('click', 
+			e => {
+        acoRemoveWrapper($wrapper);
+				reloadLastBotMsg(500);
+				loadChatSessionEnd();
+			});
+			 
+			let bonus_1 = getRandomInt(1, 11);
+			let bonus_2 = getRandomInt(11, 21);
+			let bonus_3 = getRandomInt(21, 31);
+			let bonus_4 = getRandomInt(31, 51);
+			let bonus_5 = getRandomInt(51, 101);
+      let acoBonusWheel =
+			new Wheel({
+				el: document.getElementById('wheel'),
+				theme: 'light',
+				radius: 150,
+				buttonWidth: 75,
+				data: [{
+					text: '$' + bonus_1,
+					val: bonus_1,
+					chance: 5,
+					color: '#46be8a',
+					fontColor: '#fff',
+					fontSize: 24
+				}, 
+		 		{
+					text: '$' + bonus_2,
+		 			val: bonus_2,
+					chance: 4,
+					color: '#48b0f7',
+					fontColor: '#fff',
+					fontSize: 24
+				},
+		 		{
+					text: '$' + bonus_3,
+		 			val: bonus_3,
+					chance: 3,
+					color: '#8d6658',
+					fontColor: '#fff',
+					fontSize: 24
+				},
+		 		{
+					text: '$' + bonus_4,
+		 			val: bonus_4,
+					chance: 2,
+					color: '#926dde',
+					fontColor: '#fff',
+					fontSize: 24
+				},
+		 		{
+					text: '$' + bonus_5,
+		 			val: bonus_5,
+					chance: 1,
+					color: '#f96197',
+					fontColor: '#fff',
+					fontSize: 24
+				},
+		 		],
+				limit: 1,
+		 			onSuccess(data) {
+		 			console.log(`Congratulations! You picked up ${data.val}`);
+					let bonusVal = data.val;
+					loadSessionEndBonusResult($wrapper, bonusVal);
+				}
+			});
+			
+      $('#wheel-note').on('click', function() {
+        acoBonusWheel._run();
+      });
+		}
+	});
+}
+
+function loadSessionEndBonusResult($wrapper, bonusVal) {
+	console.log("currentSessionId: " + currentSessionId);
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/session_bonus_result", 
+		data: { uid: userid, mode: acoCurrentMode, bonus: bonusVal, bonus_code: sessionBonusCode, session_id: currentSessionId},
+		dataType: 'html',
+		success: function (data) {		
+			let confettiHTML = `<lottie-player src="/wgt/assets/lottie/62717-confetti.json" loop autoplay></lottie-player>`;
+			 $("#confetti").append(confettiHTML);
+			 $('#wheel-title').text("Congrats!");
+			 $('#wheel-description').text("You won $" + bonusVal + "!");
+			 $('#wheel-note').html('<a href="#">Continue<i class="material-icons-outlined">chevron_right</i></a>');
+			 $('#wheel-note').on('click', function(e) {
+				 $wrapper.removeClass("slideInUp");
+				 $wrapper.addClass("fadeOut");
+
+				 setTimeout(function(){
+					 $wrapper.remove();
+					 loadChatSessionEnd();
+				 }, 300);
+			 });
+	   }
+	});
+}
+
+function checkAndSignup(btn = "", title = "", type = "menu") {
+	const signinStatus = $('#signin_status').text();
+	if(signinStatus == 0) {
+    if(type == "session" && sessionCount < 2) {
+      anonyNext();
+    } else if(type == "relaunch") {
+      loadEarning(function() {
+        anonyNext();
+      });
+    }
+    
+    else {
+  		loadSignup(btn, title, type);
+    }
+		return false;
+	} else {
+		return true;
+	}
+}
+
+function anonyNext() {
+  loadSignup("Sign up FREE", "Sign up to continue", "session");
+}
+
+function loadChatSessionEnd() {
+   if(!checkAndSignup("Sign up FREE", "Sign up to continue", "session")) {
+	   return;
+   }
+ 
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/session_text_chat", 
+		data: { uid: userid},
+		dataType: 'html',
+		success: function (data) { 
+			console.log("received");
+			let $wrapper = $(data);
+			$("body").append($wrapper);
+			activeRipple();
+			 
+			$('#session_report-back-btn, #session-ok-btn').on('click',
+			e => {
+		 	  acoRemoveWrapper($wrapper);
+        console.log("wrapper close");
+        if($("#user_type").text() == "pro") {
+          loadChatSessionNext();
+        } else {
+          loadNextUnlock();
+        }
+			 });
+	   }
+	});
+}
+
+var loadSessionNextProcessing = false;
+function loadChatSessionNext() {
+	if(loadSessionNextProcessing) {
+		loadSessionNextProcessing = false;
+		return;
+	}
+	loadSessionNextProcessing = true;
+	$("#text-chat-loader").show();
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/session_next", 
+		data: { uid: userid },
+		dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+		success: function (data) {
+			loadSessionNextProcessing = false;
+      $("#text-chat-loader").hide();
+			let $wrapper = $(data);
+			$("body").append($wrapper);
+			activeRipple();
+			 
+			$('#session_next-back').on('click',
+			e => {
+        acoRemoveWrapper($wrapper);
+        location.href = "/widget?uid=" + userid + "&mode=" + acoCurrentMode;
+			});
+			 
+			$('#next_text_chat-btn').on('click',
+			e => {
+        checkProToContinue("text_chat", "session", false)
+			});
+			
+			$('#next_listening-btn').on('click',
+			e => {
+        checkProToContinue("listening", "session", false)
+			});
+		
+			$('#next_speaking-btn').on('click',
+			e => {
+        var speechSupport = checkAndDialogSpeechSupport("speaking");
+        if(speechSupport) {
+          checkProToContinue("speaking", "session", false)
+        }
+			});
+			
+			$('#next_voice_chat-btn').on('click',
+			e => {
+        var speechSupport = checkAndDialogSpeechSupport("voice_chat");
+        if(speechSupport) {
+				  checkProToContinue("voice_chat", "session", false)
+        }
+			});
+		}
+	});
+}
+
+function loadNextUnlock() {
+  $("#text-chat-loader").show();
+	jQuery.ajax({ 
+		type: 'GET', 
+		url: "/unlock_next", 
+		data: { uid: userid, session_id: currentSessionId},
+		dataType: 'json',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+		success: function (data) { 
+      $("#text-chat-loader").hide();
+			console.log("received");
+
+			console.log(JSON.stringify(data));
+      
+      let respType = data["type"];
+      if(respType == "unlocked_mode_success") {
+        let nextMode = data["mode"];
+        let respBalance = data["balance"];
+        let points = data["points"];
+        loadSessionUnlocked(nextMode, points, respBalance);
+      } else if(respType == "unlocked_mode_fail") {
+        loadPayment(true, function() {
+          location.href = "/widget?uid=" + userid + "&mode=text_chat";
+        });
+      }
+      
+			$('#session_report-back-btn, #session-ok-btn').on('click',
+			e => {
+        acoRemoveWrapper($wrapper);
+        location.href = "/widget?uid=" + userid + "&mode=" + acoCurrentMode;
+			 });
+	   }
+	});
+}
+
+function loadSessionUnlocked(unlockedMode, unlockPoints, balance) {
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/session_unlocked", 
+    data: { uid: userid, unlocked: unlockedMode, unlock_points: unlockPoints,  balance: balance},
+    dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      loadGradingProcessing = false;
+      $("#text-chat-loader").hide();
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+      
+      let $player = $("#lottie-mode");
+      if($player) {
+        setTimeout(function() {
+          $($player).addClass('animated fadeOut');
+        }, 3000);
+      }
+			
+      $('#session_unlock-back-btn').on('click', 
+      e => {
+        acoRemoveWrapper($wrapper);
+        location.href = "/widget?uid=" + userid + "&mode=" + unlockedMode;
+      });
+      
+      $('#session-enjoy-btn').on('click', 
+      e => {
+        acoRemoveWrapper($wrapper);
+        location.href = "/widget?uid=" + userid + "&mode=" + unlockedMode;
+      });
+      
+	   }
+	});
+}
+
+function updateOverallGrading() {
+  $("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/grading_json", 
+    data: { uid: userid },
+    dataType: 'json',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      $("#text-chat-loader").hide();
+      let overallGrading = data.overall;
+      let stars = Math.floor(overallGrading);
+      let halfStars = 0;
+      if(overallGrading - stars > 0.7) {
+        stars ++;
+      } else if(overallGrading - stars > 0.2) {
+        halfStars = 1;
+      }
+      let oStars = 5 - stars - halfStars;
+	
+      var starsHtml = "";
+      for(let i=0; i<stars; i++) {
+        starsHtml += '<i class="material-icons-outlined">star</i> ';
+      }
+      var halfStarsHtml = "";
+      for(let i=0; i<halfStars; i++) {
+        halfStarsHtml += '<i class="material-icons-outlined">star_half</i> ';
+      }
+	
+      var oStarsHtml = "";
+      for(let i=0; i<oStars; i++) {
+        oStarsHtml += '<i class="material-icons-outlined">star_outline</i> ';
+      }
+      let allStarHtml = starsHtml + halfStarsHtml + oStarsHtml;
+      $('#stars').html(allStarHtml);
+    }
+	});
+}
+
+var loadGradingProcessing = false;
+function loadGrading() {
+	if(loadGradingProcessing) {
+		loadGradingProcessing = false;
+		return;
+	}
+	loadGradingProcessing = true;
+	$("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/grading", 
+    data: { uid: userid },
+    dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      loadGradingProcessing = false;
+      $("#text-chat-loader").hide();
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+			 
+      $('#grading-back-btn').on('click', 
+      e => {
+        acoRemoveWrapper($wrapper);
+      });
+    }
+	});
+}
+
+var loadDialogTipsProcessing = false;
+function loadDialogTipsSelection(tips_text, $input) {
+	if(loadDialogTipsProcessing) {
+		loadDialogTipsProcessing = false;
+		return;
+	}
+	loadDialogTipsProcessing = true;
+	$("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/dialog-tips", 
+    data: {uid: userid, tips: tips_text },
+    dataType: 'html',
+    error: function(){
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      $("#text-chat-loader").hide();
+      loadDialogTipsProcessing = false;
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+
+			$('#tips-back-btn').on('click', e => {
+				acoRemoveWrapper($wrapper);
+			 });
+			 
+			 
+			 $wrapper.find('.person-list-item').each( 
+				 function(idx, elem) {
+           $subElems = $(elem).children();
+           var tipVal = "";
+           var i = 0;
+           while(i < $subElems.length) {
+             $subElem = $subElems[i];
+             if($subElem.tagName == "SPAN") {
+               tipVal = $($subElem).text().trim();
+               break;
+             }
+             i++;
+           }
+           
+					 $(elem).on('click', e => {
+						 	$wrapper.remove();							
+						 	if(!tipVal.includes("[")) {
+                $input.val(tipVal);
+								window.parent.postMessage({'action': 'AcoCloseKeyboard'}, '*');
+								chatWithTip = 2;
+						    let text = $input.val();
+						    messenger.send(text);
+						    $input.val('');
+						    $input.focus();
+							} else {                
+                tmpTipText = tipVal.replace(/\[.*?\]/g, "");
+                $input.val(tmpTipText);
+                
+                let placeholderPos = tipVal.indexOf("[");
+								$input.focus();
+                
+                if(placeholderPos > 0) {
+                  $.fn.selectRange = function(start, end) {
+                      if(end === undefined) {
+                          end = start;
+                      }
+                      return this.each(function() {
+                          if('selectionStart' in this) {
+                              this.selectionStart = start;
+                              this.selectionEnd = end;
+                          } else if(this.setSelectionRange) {
+                              this.setSelectionRange(start, end);
+                          } else if(this.createTextRange) {
+                              var range = this.createTextRange();
+                              range.collapse(true);
+                              range.moveEnd('character', end);
+                              range.moveStart('character', start);
+                              range.select();
+                          }
+                      });
+                  };
+                  $input.selectRange(placeholderPos);
+                }
+               
+							}							
+					 });
+				 }
+			 );
+			 
+		 }
+	   
+	});
+}
+
+function reloadLastBotMsg(delay = 0) {
+	let $content = $('#content');
+	let $last_text_elem = $content.find('.message').last();
+	if(!$($last_text_elem).hasClass("message-received")) {
+		return;
+	}
+	let text = $($last_text_elem).find('.message-text').text();
+	let $inputSection = $('#main-chat-input-section');
+	$last_text_elem.remove();
+	$inputSection.hide();
+	
+	setTimeout(function(){
+		messenger.receive(text);
+	}, delay);
+}
+
+function addChatScore() {
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/add-chat-score", 
+    data: {uid: userid, mode: acoCurrentMode, msg_id: currentMsgId, session_id: currentSessionId, score: currentScore},
+    dataType: 'json',
+    success: function (data) {
+      if(data.code == 1) {
+        let newLevel = data.level;
+        console.log("new level: " + newLevel);
+      }
+	   }
+   });
+}
+
+function initPayPalButton() {
+  paypal.Buttons({
+    style: {
+      shape: 'pill',
+      color: 'blue',
+      layout: 'vertical',
+      label: 'paypal',
+     
+    },
+
+    createOrder: (data, actions) => {
+		return fetch(`/billing/orders?uid=${userid}`, {
+			method: "post",
+		})
+		.then((response) => response.json())
+		.then((order) => order.id);
+	},
+	// Finalize the transaction on the server after payer approval
+	onApprove: (data, actions) => {
+		return fetch(`/billing/orders/${data.orderID}/capture?uid=${userid}`, {
+			method: "post",
+		})
+		.then((response) => response.json())
+		.then((orderData) => {			
+      location.href = "/widget?uid=" + userid + "&mode=" + acoCurrentMode + "&ref=payment";
+		});
+	}
+  }).render('#paypal-button-container');
+}
+
+function openPaymentSuccess() {
+  const paymentSuccessHtml = `<div class="wrapper animated fadeIn">
+    <div class="scrim"></div>
+    <div class="full-screen">
+        <lottie-player id="lottie-payment-success" src="/wgt/assets/lottie/1127-success.json" autoplay></lottie-player>
+    </div>
+  </div>`;
+
+  let $wrapper = $(paymentSuccessHtml);
+  $("body").append($wrapper);
+  
+  let player = $("#lottie-payment-success")[0];
+  player.addEventListener("ready", () => {
+    player.play();
+    setTimeout(function() {
+      $(player).addClass('animated fadeOut');
+      acoRemoveWrapper($wrapper);
+      loadAccount();
+    }, 2000);
+  });
+}
+
+var loadPaymentProcessing = false;	
+function loadPayment(unlock = false, onclose = undefined) {
+	if(loadPaymentProcessing) {
+		loadPaymentProcessing = false;
+		return;
+	}
+  loadPaymentProcessing = true;
+  
+  $("#text-chat-loader").show();
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/payment", 
+    data: { uid: userid },
+    dataType: 'html',
+    error: function(){
+      loadPaymentProcessing = false;	
+      $("#text-chat-loader").hide();
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      loadPaymentProcessing = false;	
+      $("#text-chat-loader").hide();
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+			 
+      if(unlock) {
+        let $player = $("#lottie-unlock");
+        $($player).show();
+        if($player) {
+          setTimeout(function() {
+            $($player).addClass('animated fadeOut');
+          }, 5000);
+        }
+      }
+       
+      initPayPalButton();
+			 
+	    $('#payment-back-btn').on('click',
+      e => {
+        acoRemoveWrapper($wrapper);
+        reloadLastBotMsg(500);
+        if(onclose != undefined) {
+          onclose();
+        }
+      });
+			 
+      $('#money_back-btn').on('click',
+      e => {
+				 let moneyBackDialogHtml = 
+				 `<div class="mdc-dialog" id="dialog-money-back">
+				     <div class="mdc-dialog__container">
+				         <div class="mdc-dialog__surface"
+				              role="alertdialog"
+				              aria-modal="true"
+				              aria-labelledby="my-dialog-title"
+				              aria-describedby="my-dialog-content">
+				 						<h2 class="mdc-dialog__title" id="my-dialog-title">Money Back Guarantee
+</h2>
+				             <div class="mdc-dialog__content" id="main-dialog-alert-text">
+				 							If you change your idea in 7 days after purchase, choose Account and Refund. You will get a full refund. We will not ask why.
+				             </div>
+				             <div class="mdc-dialog__actions">
+				         			<button type="button" class="mdc-button mdc-dialog__button" data-mdc-dialog-action="discard">
+				           			<div class="mdc-button__ripple"></div>
+				           			<span class="mdc-button__label">OK</span>
+				         			</button>
+				             </div>
+				         </div>
+				     </div>
+				     <div class="mdc-dialog__scrim"></div>
+				 </div>`;
+				 $("body").append(moneyBackDialogHtml);
+				 let $dialog = mdc.dialog.MDCDialog.attachTo(document.querySelector('#dialog-money-back'));
+				 $dialog.open();
+			 });
+	 }
+	});
+}
+
+function checkSpeechSupport() {
+  let userAgent = navigator.userAgent.toLowerCase();
+  if(userAgent.indexOf('firefox') > -1 || userAgent.indexOf('fxios') > -1){
+    // firefox
+    return false;
+  }
+  if($('#speech_unsupport').text() == "1") {
+    return false;
+  }
+	if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+function checkAndDialogSpeechSupport(mode) {
+  console.log("mode:" + mode);
+	let title = "";
+  if(mode == "speaking") {
+    title = "Speaking";
+  } else if(mode == "voice_chat") {
+    title = "Voice Chat";
+  }
+  
+  console.log("TITLE: " + title);
+  if(title != "") {
+    if(!checkSpeechSupport()) {
+      let speechAlertDialog = mdc.dialog.MDCDialog.attachTo(document.querySelector('#main-dialog-alert'));
+      $('#main-dialog-alert-title').text('Oops');
+      $('#main-dialog-alert-text').html("Your browser isn't compatible with Speaking feature. Use Chrome instead. <a href='https://www.google.com/chrome/' target='_blank'>Download</a> it for free.");
+      speechAlertDialog.open();
+      return false;
+    }
+  }
+  return true;
+}
+
+
+function copyToClipboard(text) {
+    var $temp = $("<input>");
+    $("body").append($temp);
+    $temp.val(text).select();
+    document.execCommand("copy");
+    $temp.remove();
+}
+
+
+function posInPlaceholder(text, pos) {
+  var startPos = -1;
+  var endPos = -1;
+  
+  var i = pos;
+  while(i >= 0) {
+    var char = text.charAt(i);
+    if(char === ']') {
+      if(i === pos) {
+        endPos = pos;
+      } else {
+        break;
+      }
+    } else if(char === '[') {
+      startPos = i;
+      break;
+    }
+    i--;
+  }
+  
+  i = pos;
+  while(i < text.length) {
+    var char = text.charAt(i);
+    if(char == '[') {
+      if(i === pos) {
+        startPos = pos;
+      } else {
+        break;
+      }
+    } else if(char == ']') {
+      endPos = i;
+      break;
+    }
+    i++;
+  }
+  
+  if(startPos !== -1 && endPos !== -1) {
+    return [startPos, endPos];
+  } else {
+    return null;
+  }
+}
+
+function removeTipPlaceholder($elem) {
+  $.fn.selectRange = function(start, end) {
+      if(end === undefined) {
+          end = start;
+      }
+      return this.each(function() {
+          if('selectionStart' in this) {
+              this.selectionStart = start;
+              this.selectionEnd = end;
+          } else if(this.setSelectionRange) {
+              this.setSelectionRange(start, end);
+          } else if(this.createTextRange) {
+              var range = this.createTextRange();
+              range.collapse(true);
+              range.moveEnd('character', end);
+              range.moveStart('character', start);
+              range.select();
+          }
+      });
+  };
+  
+  var cursorPosition = $($elem).prop("selectionStart");
+  var textVal = $($elem).val();
+  if(cursorPosition > 0) {
+    var placeHolderPos = posInPlaceholder(textVal, cursorPosition - 1);
+    if(placeHolderPos !== null) {
+      let startPos = placeHolderPos[0];
+      let endPos = placeHolderPos[1];
+    
+      var newTextVal = textVal.substring(0, startPos) + " " + textVal.substring(endPos + 1, textVal.length)
+      $elem.val(newTextVal);
+      $($elem).selectRange(startPos + 1);
+    }
+  }
+}
+
+function tipToErrorLoad() {
+	let $tip_close_btn = $("#main-tip-close");
+ 	let tip = mdc.snackbar.MDCSnackbar.attachTo(document.querySelector('#main-tip'));
+  
+ 	$tip_close_btn.on("click", e => {
+   	tip.close();
+ 	});
+	console.log("do tip");
+	$('#main-tip-text').text("Oops! Time out. Check your Internet connection or try again later.");
+	tip.open();
+  
+}
+
+function lottieVoiceOverOn(func) {
+  var doPlay = (player) => {
+    player.play();
+    setTimeout(function() {
+      $(player).addClass('animated fadeOut');
+    }, 2000);
+
+    setTimeout(function() {
+      func();
+      player.stop();
+      $('#success-animation').removeClass("scrim");
+    }, 2400);
+  };
+  
+  $('#success-animation').addClass("scrim");
+  const player = $("lottie-player")[0];
+  $(player).removeClass('animated fadeOut');
+  
+  if(player.getLottie().fileName != "7086-voice-mod-white") {
+    player.load("/wgt/assets/lottie/7086-voice-mod-white.json");
+    player.addEventListener("ready", () => {
+      doPlay(player);
+    });
+  } else {
+    doPlay(player);
+  }
+}
+
+
+function lottiePlaySuccess(func) {
+  var doPlay = (player) => {
+    player.play();
+    setTimeout(function() {
+      $(player).addClass('animated fadeOut');
+    }, 2000);
+  
+    setTimeout(function() {
+      func();
+      player.stop();
+      $('#success-animation').removeClass("scrim");
+    }, 2400);
+  };
+  
+  $('#success-animation').addClass("scrim");
+  const player = $("lottie-player")[0];
+  $(player).removeClass('animated fadeOut');
+  if(player.getLottie().fileName != "1127-success") {
+    player.load("/wgt/assets/lottie/1127-success.json");
+    player.addEventListener("ready", () => {
+      doPlay(player);
+    });
+  } else {
+    doPlay(player);
+  }
+}
+
+function lottiePlayStart(func) {
+  var doPlay = (player) => {
+    player.play();
+    
+    setTimeout(function() {
+      $(player).addClass('animated fadeOut');
+    }, 3000);
+  
+    setTimeout(function() {
+      player.stop();
+      func();
+      $('#success-animation').removeClass("scrim");
+    }, 3500);
+  };
+  
+  $('#success-animation').addClass("scrim");
+  const player = $("lottie-player")[0];
+  $(player).removeClass('animated fadeOut');
+  
+  if(player.getLottie().fileName != "31548-hello") {
+    player.load("/wgt/assets/lottie/31548-hello.json");
+    player.addEventListener("ready", () => {
+      doPlay(player);
+    });
+  } else {
+    doPlay(player);
+  }
+}
+
+
+function lottieEmailSend() {
+  var doPlay = (player) => {
+    player.play();
+    
+    setTimeout(function() {
+      $(player).addClass('animated fadeOut');
+    }, 5000);
+  
+    setTimeout(function() {
+      player.stop();
+      $('#success-animation').removeClass("scrim");
+    }, 7500);
+  };
+  
+  $('#success-animation').addClass("scrim");
+  const player = $("#lottie-email-send")[0];
+  $(player).removeClass('animated fadeOut');
+  
+  if(player.getLottie().fileName != "81723-email-send") {
+    player.load("/wgt/assets/lottie/81723-email-send.json");
+    player.addEventListener("ready", () => {
+      doPlay(player);
+    });
+  } else {
+    doPlay(player);
+  }
+}
+
+function lottiePlayLogout(func) {
+  var doPlay = (player) => {
+    player.play();
+    setTimeout(function() {
+      $(player).addClass('animated fadeOut');
+    }, 1500);
+  
+    setTimeout(function() {
+      func();
+      $('#success-animation').removeClass("scrim");
+      player.stop();
+    }, 2400);
+  };
+  
+  $('#success-animation').addClass("scrim");
+  const player = $("lottie-player")[0];
+  $(player).removeClass('animated fadeOut');
+  if(player.getLottie().fileName != "111570-logout") {
+    player.load("/wgt/assets/lottie/111570-logout.json");
+    player.addEventListener("ready", () => {
+      doPlay(player);
+    });
+  } else {
+    doPlay(player);
+  }
+}
+
+
+function activeRipple() {
+	// Ripple effect
+	document.querySelectorAll(`[effect="ripple"]`).forEach(el => {
+		el.addEventListener('click', e => {
+			e = e.touches ? e.touches[0] : e;
+			const r = el.getBoundingClientRect(),
+					d = Math.sqrt(Math.pow(r.width, 2) + Math.pow(r.height, 2)) * 2;
+			el.style.cssText = `--s: 0; --o: 1;`;
+			el.offsetTop;
+			el.style.cssText = `--t: 1; --o: 0; --d: ${d}; --x:${e.clientX - r.left}; --y:${e.clientY - r.top};`;
+		});
+	});
+}
+
+activeRipple();

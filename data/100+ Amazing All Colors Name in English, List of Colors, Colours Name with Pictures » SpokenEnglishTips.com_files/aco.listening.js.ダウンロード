@@ -1,0 +1,459 @@
+function acoListeningPlayAudio(voiceText) {
+  console.log("Play");
+	var	text = voiceText.replaceAll("acoDQ", "\"").replaceAll("acoSQ", "'");
+	
+	$input = $('#listening-input');
+	let user_text = $input.val();
+	// $('#listening-input').val('');
+	if(user_text) {
+		// $('#listening-text').html(user_text);
+		$('#listening-text').html("");
+		$("#rating-stars").html("");
+		$("#listening-next").hide();
+	}
+	
+	$("#listening-btn-icon").addClass("white-ripple");
+
+	
+  jQuery.ajax({
+    type: 'GET',
+    url: '/audio',
+    data: {uid: userid, msg: text},
+    dataType: 'json',
+    error: function(){
+      tipToErrorLoad();
+    },
+    success: function (data) {
+      console.log("received");
+      var audio_url = data.audio_url;
+      console.log("receive audio " + audio_url);
+      var audio = new Audio(audio_url);
+      audio.play();
+			audio.onended = function() {
+				$("#listening-btn-icon").removeClass("white-ripple");
+				$('#listening-input-section').show();
+			}
+    }
+  });
+}
+
+function acoBackgroundPlayAudio(voiceText) {
+  jQuery.ajax({
+    type: 'GET',
+    url: '/audio',
+    data: {uid: userid, msg: voiceText},
+    dataType: 'json',
+    success: function (data) {
+      console.log("received");
+      var audio_url = data.audio_url;
+      console.log("receive audio " + audio_url);
+      var audio = new Audio(audio_url);
+      audio.play();
+    }
+  });
+}
+
+function compareAudioByWords(speakingText, origText) {
+	if(speakingText === "") return [origText, 0, origText.split(" ").length, 0];
+	
+  // const wDiff = JsDiff.diffWords(speakingText.toLowerCase(), origText.toLowerCase());
+  const wDiff = Diff.diffWords(speakingText, origText, {comparator: function(left, right) {
+    var regex = /[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g;
+    var lowerLeft = left.toLowerCase();
+    var lowerRight = right.toLowerCase();
+    if(lowerLeft === lowerRight) {
+      return true;
+    } else {
+     
+      var sLeft = lowerLeft.replace(regex, '').replace("okay", "ok");
+      // console.log("LEFT " + sLeft);
+      var sRight = lowerRight.replace(regex, '').replace("okay", "ok");
+      // console.log("RIGHT " + sRight);
+      if(sLeft === sRight) {
+        return true;
+      }
+    }
+    return false;
+  }});
+	const fragment = document.createDocumentFragment();
+	let diffHtml = '<div class="diff">';
+	let wordsAddCount = 0;
+	let wordsRemovedCount = 0;
+	let wordsSameCount = 0;
+	
+	wDiff.forEach((part) => {
+		let partWord = part.value.trim();
+		let partLen = partWord ? partWord.split(" ").length : 0;
+		let addCount = part.added ? partLen : 0;
+		let removedCount = part.removed ? partLen : 0;
+		console.log("part value:" + part.value + "|" + partLen);
+		let sameCount = part.added ? 0 :  part.removed ? 0 : partLen;
+		let diffSpan = part.added ? '<span class="insertion">' + part.value +'</span>' :
+						 part.removed ? '<span class="deletion">' + part.value +'</span>' : part.value;
+		diffHtml += diffSpan;
+		wordsAddCount += addCount;
+		wordsRemovedCount += removedCount;
+		wordsSameCount += sameCount;
+	});
+	diffHtml += "</div>";
+	return [diffHtml, wordsAddCount, wordsRemovedCount, wordsSameCount];
+}
+
+function acoRatingHtml(rate) {
+	if(rate > 10) {
+		rate = 10;
+	}
+	let stars = Math.floor(rate / 2);
+	let halfStars = rate % 2 ? 1 : 0;
+	let oStars = 5 - stars - halfStars;
+	
+	var starsHtml = "";
+	for(let i=0; i<stars; i++) {
+    // starsHtml += '<i class="material-icons-outlined">star</i>';
+    //  item" data-aos-delay="100" data-aos="fade-left"
+    var delay = 100 + i * 300; // all should be in 3 seconds
+    starsHtml += '<i class="material-icons-outlined item" data-aos-delay="' + delay + '" data-aos="flip-left">star</i>';
+	}
+	var halfStarsHtml = "";
+	for(let i=0; i<halfStars; i++) {
+    // halfStarsHtml += '<i class="material-icons-outlined">star_half</i>';
+    var delay = 100 + stars * 300;
+    halfStarsHtml += '<i class="material-icons-outlined item" data-aos-delay="' + delay + '" data-aos="flip-left">star_half</i>';
+	}
+	
+  var oStarsHtml = "";
+  for(let i=0; i<oStars; i++) {
+    // oStarsHtml += '<i class="material-icons-outlined">star_outline</i>';
+    var delay = 100 + (stars + halfStars) * 300 + i * 300;
+    halfStarsHtml += '<i class="material-icons-outlined item" data-aos-delay="' + delay + '" data-aos="flip-left">star_outline</i>';
+  }
+	
+  return starsHtml + halfStarsHtml + oStarsHtml;
+  // if(stars + halfStars > 0) {
+  //   return starsHtml + halfStarsHtml;
+  // } else {
+  //   return oStarsHtml;
+  // }
+}
+
+
+function sendListeningText(text) {
+  // compareAudio();
+	$('#listening-input-section').hide();
+	$('#listening-btn-section').hide();
+	window.parent.postMessage({'action': 'AcoCloseKeyboard'}, '*');
+	$input = $('#listening-input');
+	
+	let user_text = $input.val();
+	
+	let diff = compareAudioByWords(user_text, text);
+	
+	$('#listening-text').html(diff[0]);
+	$("#listening-next").show();
+	// $('#listening-text').on('click', e => {
+	// 	location.href = "/msg_actions?type=bot&msg=" + encodeURI(text);
+	// });
+		
+	// $('#speaking-text').html(diff[0]);
+	console.log("added count: " + diff[1]);
+	console.log("removed count: " + diff[2]);
+	console.log("same count: " + diff[3]);
+	
+	let normal_listening_text = user_text.replace(/\p{P}/gu, " ").replace(/\s\s+/g, ' ').trim();
+	let normal_text = text.replace(/\p{P}/gu, " ").replace(/\s\s+/g, ' ').trim();
+	diff = compareAudioByWords(normal_listening_text, normal_text);
+	
+	var diffAdd = diff[1];
+	var diffRemove = diff[2];
+	var diffV = 0;
+	if(diffAdd === 0) {
+		diffV = diffRemove;
+	} else if(diffRemove === 0) {
+		diffV = diffAdd;
+	} else {
+		diffV = diff[1] > diff[2] ? diff[1] : diff[2];
+	}
+	
+	
+	// var diffV = diff[1] > diff[2] ? diff[2] : diff[1];
+	var wordCount = normal_text.split(" ").length;
+	let newRatedListeningWords = wordCount - diffAdd - diffRemove;
+	if(newRatedListeningWords > ratedListeningWords) {
+		ratedListeningWords = newRatedListeningWords;
+	}
+	
+					
+	let audioText1 = ["Don't worry, try gain.", "You can do it.", "Not bad at all! Keep on trying!", "A good try!", "You're learning fast! Keep working on it, you’re improving.", "One more time and you’ll have it"];
+	const audioText5 = ["Perfect!", "You're awesome!", "You're the best!", "You're enough!", "You deserve a medal!", "Congratulations!", "That's impressive!", "Wow, you are so skilled!", "This is insanely good."];
+	const audioText4 = ["Very good!", "Well done! Good job! Great!", "Wonderful!", "Awesome!", "Nice work!", "Excellent job!", "Impressive work!", "Outstanding work!", "Great job!", "Terrific job!", "You are very good at that."];
+	const audioText3 = ["Good!", "Pretty good!", "Very good!", "Nice!", "Your progress is truly inspiring.", "Good work.", "You're doing this right.", "Beautiful work.", "Fantastic!", "You're doing well!", "You certainly did well.", "That’s quite an improvement."]
+	const audioText2 = ["Not bad.", "Good.", "That's okay.", "Let's practice more.", "All Right!", "Way to go!", "Good going!", "That’s right!", "What a good try!", "You're a fast learner.", "That’s coming along nicely"];
+	let audioText = audioText1;
+	// var sameV = diff[3];
+	let rateV = 1- diffV / wordCount;
+	var rate = 0;
+	if(rateV >= 0.8) {
+		rate = 10;
+		audioText = audioText5;
+	} else if(rateV >= 0.7) {
+		rate = 9;
+		audioText = audioText4;
+	} else if(rateV >= 0.6) {
+		rate = 8;
+		audioText = audioText4;
+	} else if(rateV >= 0.5) {
+		rate = 7;
+		audioText = audioText3;
+	} else if(rateV >= 0.4) {
+		rate = 6;
+		audioText = audioText3;
+	} else if(rateV >= 0.3){
+		rate = 5;
+		audioText =audioText2;
+	} else if(rateV >= 0.2) {
+		rate = 4;
+		audioText = audioText2;
+	} else if(rateV >= 0.1) {
+		audioText = audioText1;
+		rate = 2;
+	}
+	
+	console.log("diff: " + diffV);
+	console.log("rateV: " + rateV);
+	console.log("rate: " + rate);
+	currentScore = rate / 2;
+	var rateHtml = acoRatingHtml(rate);
+	$("#rating-stars").html(rateHtml);
+	let rateAudioText = audioText[Math.floor(Math.random()*audioText.length)];
+  
+
+	
+	let currentLevl = parseInt($('#listening-level-val').text());
+	let newLevl = currentLevl;
+	if(currentScore >= 4.0) {
+		newLevl = currentLevl + 1;
+	} else if(currentScore < 3.0) {
+		newLevl = currentLevl - 1;
+	}
+	if(newLevl < 1) {
+		newLevl = 1;
+	}
+	$('#listening-level').show();
+	let level_alter = newLevl - currentLevl;
+  let levelHtml = '<div class="level-change">Level</div>';
+	if(level_alter > 0) {
+		levelHtml = `<div class="level-change">Level <i class="material-icons-outlined">north</i> ${level_alter}</div>`
+	} else if(level_alter < 0) {
+		level_alter = level_alter * -1;
+		levelHtml = `<div class="level-change">Level<i class="material-icons-outlined">south</i> ${level_alter}</div>`
+	}
+	levelHtml = levelHtml + `<div class="level-new">${newLevl}</div>`;
+	$('#listening-level').html(levelHtml);
+  
+  AOS.init({
+    duration: 800,
+  });
+  
+  if(currentScore < 4.0) {
+    audioDelay = currentScore * 400;
+    setTimeout(function() {
+    	acoBackgroundPlayAudio(rateAudioText);
+    }, audioDelay);
+  }
+  
+
+  
+  if(currentScore >= 4.0) {
+    console.log("play party");
+    playRatingLottie(1500, () => {
+      acoBackgroundPlayAudio(rateAudioText);
+    });
+  }
+  
+}
+
+function playRatingLottie(timeout, func) {
+  let now = Date.now();
+  let lottiePlayerHtml = 
+  `<lottie-player
+  src="/wgt/assets/lottie/32509-stars.json"
+  style="width: 350px; height:350px;"
+  id="lottie-listening-rating"
+  ></lottie-player>`;
+  $("#thumb-up-container").append(lottiePlayerHtml);
+  const player = $("#lottie-listening-rating")[0];
+  
+  var dupEvent = false;
+  player.addEventListener("ready", () => {
+    if(dupEvent) {
+      return;
+    }
+    dupEvent = true;
+    let loadedNow = Date.now();
+    var newTimeout = timeout - (loadedNow - now);
+    if(newTimeout < 0) {
+      newTimeout = 0;
+    }
+    setTimeout(() => {
+      player.play();
+      
+      setTimeout(() => {
+        player.load("/wgt/assets/lottie/90927-green-thumb-up.json");
+        player.addEventListener("ready", () => {
+          player.play();    
+          func();
+        });
+      }, 2000);
+      
+      
+    }, newTimeout);
+    
+  });
+}
+
+function updateMainToPlayed($msg_elem) {
+	$("#main-chat-input-section").show();
+	$("#text-chat-loader").hide();
+	$('#input').show();
+	// $msg_elem.find('i').hide();
+	// $msg_elem.find('span').show();
+	$msg_elem.show();
+}
+
+var loadListeningSessionEndProcessing = false;
+function loadListeningSessionEnd() {
+  if(loadListeningSessionEndProcessing) {
+    loadListeningSessionEndProcessing = false;
+    return;
+  }
+
+  loadListeningSessionEndProcessing = true;
+  jQuery.ajax({
+    type: 'GET',
+    url: "/session_listening",
+    data: {uid: userid, session_id: currentSessionId },
+    dataType: 'html',
+    success: function (data) {
+      console.log("received");
+      loadListeningSessionEndProcessing = false;
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+
+      $wrapper.find('#session_listening-back-btn, #ok-btn').on('click', e => {
+        $wrapper.removeClass("slideInUp");
+        $wrapper.addClass("fadeOut");
+
+        setTimeout(function(){
+          $wrapper.remove();
+        }, 1000);
+        // loadChatSessionNext();
+        if($("#user_type").text() == "pro") {
+          location.href = "/widget?uid=" + userid  + "&mode=listening";
+        } else {
+          // location.href = "/widget?uid=" + userid + "&mode=text_chat";
+          loadNextUnlock();
+        }
+	 			
+        console.log("wrapper close");
+      });
+      
+    }
+  });
+}
+
+var loadListeningProcessing = false;
+var ratedListeningWords = 0;
+function loadListening($msg_elem, text) {
+  if(loadListeningProcessing) {
+		loadListeningProcessing = false;
+		return;
+	}
+ 	window.parent.postMessage({'action': 'AcoCloseKeyboard'}, '*');
+	
+	console.log("reset ratedListeningWords: " + ratedListeningWords);
+	ratedListeningWords = 0;
+	loadListeningProcessing = true;
+	
+	jQuery.ajax({ 
+    type: 'GET', 
+    url: "/msg_listening", 
+    data: {uid: userid, text: text },
+    dataType: 'html',
+    error: function(){
+      tipToErrorLoad();
+    },
+    success: function (data) { 
+      console.log("received");
+      currentScore = 0;
+      loadListeningProcessing = false;
+      let $wrapper = $(data);
+      $("body").append($wrapper);
+      activeRipple();
+			 
+      $wrapper.find('#listening-back-btn').on('click', e => {
+        $wrapper.removeClass("slideInUp");
+        $wrapper.addClass("fadeOut");
+        window.parent.postMessage({'action': 'AcoCloseKeyboard'}, '*');
+        updateMainToPlayed($msg_elem);
+        if(currentScore >= 0) {
+          addChatScore();
+        }
+        
+        setTimeout(function(){
+          $wrapper.remove();
+        }, 1000);
+        
+        if(listeningSessionEnd == 1) {
+          loadListeningSessionEnd();
+        }
+        
+        
+        console.log("wrapper close");
+      });
+			 
+			 $wrapper.find('#listening-next').on('click', e => {
+         $wrapper.removeClass("slideInUp");
+				 $wrapper.addClass("fadeOut");
+				 window.parent.postMessage({'action': 'AcoCloseKeyboard'}, '*');
+				 updateMainToPlayed($msg_elem);
+				 if(currentScore >= 0) {
+				 	addChatScore();
+				 }
+         
+         setTimeout(function(){
+           $wrapper.remove();
+         }, 1000);
+         if(listeningSessionEnd == 1) {
+           loadListeningSessionEnd();
+         }
+         console.log("wrapper next");
+       });
+			 
+			 
+			 if(listeningMsgPlayed) {
+			 	 $('#listening-input-section').show();
+			 }
+			 
+			 $('#listening-btn').on("click", e => {
+				  updateMainToPlayed($msg_elem);
+			 		acoListeningPlayAudio(text);
+			 })
+			 
+			 
+		 	 $input = $('#listening-input')
+	
+
+		   $input.on('keydown', function (e) {
+		     let key = e.which || e.keyCode;
+
+		     if (key === 13) {// enter key
+		       e.preventDefault();
+           sendListeningText(text);
+		     }
+		   });
+			 
+      
+	   }
+	});
+}

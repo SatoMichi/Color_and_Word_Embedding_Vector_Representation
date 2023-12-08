@@ -1,0 +1,270 @@
+var acoDomain = "bot.acobot.ai";
+var acoWidgetLoaded = false;
+function acoCreateCookie(name, value, days) {
+	var expires;
+
+	if (days) {
+		var date = new Date();
+		date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+		expires = "; expires=" + date.toGMTString();
+	} else {
+		expires = "";
+	}
+	document.cookie = encodeURIComponent(name) + "=" + encodeURIComponent(value) + expires + "; path=/";
+}
+
+function acoReadCookie(name) {
+   var nameEQ = encodeURIComponent(name) + "=";
+   var ca = document.cookie.split(';');
+   for (var i = 0; i < ca.length; i++) {
+		 var c = ca[i];
+		 while (c.charAt(0) === ' ')
+			 c = c.substring(1, c.length);
+		 if (c.indexOf(nameEQ) === 0)
+			 return decodeURIComponent(c.substring(nameEQ.length, c.length));
+	 }
+	 return null;
+}
+
+function acoEraseCookie(name) {
+	acoCreateCookie(name, "", -1);
+}
+
+
+	
+function acoGetUid() {
+	let user_id = acoReadCookie("aco_user_id");
+	if(user_id) {
+		console.log("userid from cookie: " + user_id);
+		return user_id;
+	} else {
+			user_id =  ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+	    	(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+			acoCreateCookie("aco_user_id", user_id, 365);
+			return user_id;
+	}
+}
+
+function acoRenewUid(uid) {
+	acoEraseCookie("aco_user_id");
+	acoCreateCookie("aco_user_id", uid, 365);
+	return uid;
+}
+
+function acoIconLoaded(){
+	console.log("FAB icon loaded");
+	document.getElementById('aco-fab').style.setProperty("display", "block");
+}
+
+function acoHideLoader(){
+	document.getElementById('aco-loader').style.setProperty("display", "none");
+}
+
+function acoInitFab() {
+  document.head.innerHTML += '<link rel="stylesheet" href="//' + acoDomain + '/widget/fab.css" type="text/css"/>';
+  document.head.innerHTML += '<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">';
+  document.head.innerHTML += '<link href="https://s3-us-west-2.amazonaws.com/s.cdpn.io/104946/animate.min.css" rel="stylesheet">';
+  var acoFabDivHtml =
+      '<div class="aco-fab animated slideInUp" id="aco-fab" style="display:none!important">' +
+      '<button class="mdc-fab mdc-ripple-upgraded" style="background-color: #bb133e" aria-label="Chat" id="aco-fab-btn">' +
+      '<div class="mdc-fab__ripple"></div>' +
+      '<img class="mdc-fab__icon" src="//' + acoDomain + '/widget/images/logo-white-32.png" alt="" onLoad="acoIconLoaded()">' +
+      '</button>' +
+      '</div>';
+
+  document.body.innerHTML += acoFabDivHtml;
+  acoInitWidget();
+  
+  let acoFabBtn = document.getElementById('aco-fab-btn');
+  acoFabBtn.addEventListener('click', (event) => {
+    acoOpenWidget();
+    event.stopPropagation();
+  });
+}
+
+var heroImg = 'clouds.0C2840.jpg';
+
+function acoInitWidget() {
+	if(document.getElementById('aco-frame-div')) {
+	 	console.log("Widget is opening");
+		return;
+	}
+  
+  var acoGuide = 0;
+  if(acoCheckGuide()) {
+    acoGuide = 1;
+  }
+
+	
+  var iframe = document.createElement('iframe');
+  iframe.id = "aco-frame";
+  let uid = acoGetUid();
+  iframe.setAttribute('src',"//" + acoDomain + "/wgt/preloader.html");
+  iframe.setAttribute('data', "//" + acoDomain + "/widget?uid=" + uid + "&pid=60" + "&hero=" + heroImg + "&guide=" + acoGuide);
+  iframe.allow = "microphone; autoplay";
+	
+
+  document.head.innerHTML += '<style>#aco-frame-div{background-image: url(//' +acoDomain+ '/wgt/assets/img/bg/' + heroImg +')}</style>';
+
+  const wrapper = document.createElement('div');
+  wrapper.id = "aco-frame-div";
+  wrapper.classList.add ("animated", "slideInUp");
+
+	wrapper.innerHTML +=
+			 '<div id = "aco-loader">'
+			+'<div class="lds-spinner"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>'
+			+'</div>'
+
+	wrapper.appendChild(iframe);
+	document.body.appendChild(wrapper);
+}
+
+function acoCheckGuide() {
+  let acoGuide = acoReadCookie("aco_guide");
+  if(acoGuide == null) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function acoOpenWidget(){
+  acoWidgetOpenStatus = true;
+  acoCreateCookie("aco_guide", "1", 365);
+	var wrapper = document.getElementById('aco-frame-div');
+	var iframe = document.getElementById('aco-frame');
+	if (iframe.hasAttribute('data')){
+		var url = iframe.getAttribute('data');
+		console.log("open widget: " + url);
+		
+		iframe.setAttribute('src', url);
+		iframe.removeAttribute('data');
+	}
+	document.getElementById('aco-fab').style.setProperty("display", "none", "important")
+	wrapper.classList.remove("fadeOutDown");
+	wrapper.classList.add("slideInUp");
+	wrapper.style.setProperty("display", "block", "important");
+  
+  if(acoWidgetLoaded) {
+    console.log("aco reopen widget");
+    document.getElementById("aco-frame").contentWindow.postMessage({'action': 'AcoReopenWidget'}, '*');
+  }
+  
+  acoWidgetLoaded = true;
+}
+
+function acoCloseWidget() {
+  acoWidgetOpenStatus = false;
+	var wrapper =document.getElementById('aco-frame-div');
+	wrapper.classList.remove("slideInUp");
+	wrapper.classList.add("fadeOutDown");
+	
+	setTimeout(function(){
+		wrapper.style.setProperty("display", "none", "important");
+		document.getElementById('aco-fab').style.display = 'block';
+	}, 1100);
+}
+
+function acoReNewWidget() {
+  var acoFrameElem = document.getElementById('aco-frame-div');
+  acoFrameElem.parentNode.removeChild(acoFrameElem);
+  acoInitWidget();
+  acoCloseWidget();
+  // acoOpenWidget();
+}
+
+window.addEventListener('message', acoReceiveMessage, false);
+function acoReceiveMessage(evt) {
+  if(evt.origin.includes('//' + acoDomain)) {
+		console.log("Origin: "+evt.origin);
+		console.log("Aco message: "+evt.data);
+		
+		let action = evt.data.action;
+		console.log("action: " + action);
+		if(action === "AcoCloseWidget") {
+			acoCloseWidget();
+			return;
+		}
+		
+		if(action === "AcoRenewUid") {
+			let uid = evt.data.uid;
+			acoRenewUid(uid);
+      acoReNewWidget();
+			return;
+		}
+    
+		if(action === "AcoRenewWidget") {
+      acoReNewWidget();
+			return;
+		}
+		
+		if(action === "AcoUpdateSceneBg") {
+			let hero_img_file = evt.data.hero_img_file;
+			var wrapper = document.getElementById('aco-frame-div');
+			let bg_img_url = "url(//" +acoDomain+ "/" + hero_img_file + ")";
+			console.log("update hero image: " + bg_img_url);
+			wrapper.style.backgroundImage = bg_img_url;
+		}
+		
+		if(action === "AcoCloseWidgetByLoader") {
+			let acoLoaderElem = document.getElementById('aco-loader');
+			console.log("-----");
+			if(acoLoaderElem.style.display === "") {
+				console.log("loader is not opened before");
+				return;
+			}
+			console.log("====");
+			
+			acoCloseWidget();
+			var iframe = document.getElementById('aco-frame');
+			iframe.id = "aco-frame";
+			let uid = acoGetUid();
+			iframe.setAttribute('data', "//" +acoDomain+ "/widget?uid=" + uid + "&pid=60" +  "&hero=" + heroImg);
+			iframe.allow = "microphone";
+			
+			return;
+		}
+
+	  if(action === "AcoHideLoader") {
+		  acoHideLoader();
+			return;
+	  }
+		
+		if(action === "AcoCloseKeyboard") {
+			document.activeElement.blur();
+			return;
+		}
+	
+
+   // if(action === "AcoLogout") {
+   //    acoEraseCookie("aco_user_id");
+   //    return;
+   // }
+
+   
+		if(action === "AcoRememberMe") {
+			let uid = evt.data.uid
+			console.log("remember me: " + uid);
+			acoCreateCookie("aco_user_id", uid, 365);
+			return;
+		}
+  }
+}
+
+var acoWidgetOpenStatus = false;
+const acoFrameDiv = document.querySelector('#aco-frame-div')
+document.addEventListener('click', (event) => {
+  if(event.target && event.target.tagName == "A") {
+    if(event.target.href.indexOf("#aco")) {
+		  acoOpenWidget();
+      return;
+    }
+  }
+  const withinBoundaries = event.composedPath().includes(acoFrameDiv);
+  if(!withinBoundaries && acoWidgetOpenStatus) {
+    acoCloseWidget();
+  } 
+});
+
+
+acoInitFab();

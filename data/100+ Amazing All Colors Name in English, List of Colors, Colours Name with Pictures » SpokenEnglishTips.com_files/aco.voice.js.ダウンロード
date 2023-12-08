@@ -1,0 +1,173 @@
+var acoVoiceRecognition = null;
+function loadVoiceChat(messenger) {
+	let tip = mdc.snackbar.MDCSnackbar.attachTo(document.querySelector('#main-tip'));
+	let dialog = mdc.dialog.MDCDialog.attachTo(document.querySelector('#main-dialog-alert'));
+	
+	let $speaking_btn = $('#main-speaking-btn');
+	let $speaking_btn_a = $('#main-speaking-btn-a');
+	let $speaking_icon = $('#main-speaking-icon');
+	
+	let speaking_text = "";
+	let listening = false;
+	if(acoVoiceRecognition == null) {
+  	const SpeechRecognition =	window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(typeof SpeechRecognition !== "undefined") {
+      acoVoiceRecognition = new SpeechRecognition();
+      acoVoiceRecognition.lang = 'en-US';
+      acoVoiceRecognition.continuous = true;
+      acoVoiceRecognition.interimResults = true;
+      
+      const voiceStop = (withTip = true) => {
+        acoVoiceRecognition.stop();
+        console.log("stop speaking text: " + speaking_text);
+        $($speaking_icon).removeClass("white-ripple");
+        listening = false;
+        if(speaking_text) {
+          messenger.send(speaking_text);
+          speaking_text = "";
+        } else {
+          if(withTip && !dialog.isOpen) {
+            const tip_texts = ["Speak louder.", "Move microphone closer."]
+            let tip_text = tip_texts[Math.floor(Math.random()*tip_texts.length)];
+            $('#tip-text').text(tip_text);
+            tip.open();
+          }
+        }
+      };
+
+      const voiceStart = () => {
+        speaking_text = "";
+        try {
+          acoVoiceRecognition.start();
+        } catch(err) {
+          $('#main-tip-text').text("Failed to start recognition: " + err);
+          if(!tip.isOpen) {
+            tip.open();
+          }
+        }
+        $($speaking_icon).addClass("white-ripple");
+      };
+
+      const voiceOnResult = event => {
+        for (const res of event.results) {
+          const text = res[0].transcript;
+          if (res.isFinal) {
+            speaking_text = text;
+            voiceStop();
+          } 
+        }
+    	};
+		
+      acoVoiceRecognition.addEventListener("result", voiceOnResult);
+      acoVoiceRecognition.addEventListener('error', (event) => {
+        $('#main-tip-text').text(`Speech recognition error detected: ${event.error}`);
+        if(!tip.isOpen) {
+	        tip.open();
+        }
+      });
+      
+      $speaking_btn.on("click", e => {
+        e.preventDefault();
+        if(listening) {
+          listening = false;
+          voiceStop(false);
+        } else {
+          listening = true;
+          voiceStart();
+        }
+      });
+    } else {
+      $('#main-dialog-alert-text').text('Speech recognition is not supprted by the browser.');
+      dialog.open();
+    }
+  }
+  
+  
+	
+}
+/*
+function loadVoiceChat(messenger) {
+	let tip = mdc.snackbar.MDCSnackbar.attachTo(document.querySelector('#main-tip'));
+	let dialog = mdc.dialog.MDCDialog.attachTo(document.querySelector('#main-dialog-alert'));
+	
+	let $speaking_btn = $('#main-speaking-btn');
+	let $speaking_btn_a = $('#main-speaking-btn-a');
+	let $speaking_icon = $('#main-speaking-icon');
+	
+	let speaking_text = "";
+	let listening = false;
+	const SpeechRecognition =	window.SpeechRecognition || window.webkitSpeechRecognition;
+	if (typeof SpeechRecognition !== "undefined") {
+		const recognition = new SpeechRecognition();
+		recognition.lang = 'en-US';
+
+		const voiceStop = (withTip = true) => {
+      recognition.stop();
+			console.log("stop speaking text: " + speaking_text);
+			$($speaking_icon).removeClass("white-ripple");
+			listening = false;
+			if(speaking_text) {
+				messenger.send(speaking_text);
+				speaking_text = "";
+			} else {
+				if(withTip && !dialog.isOpen) {
+					const tip_texts = ["Speak louder.", "Move microphone closer."]
+					let tip_text = tip_texts[Math.floor(Math.random()*tip_texts.length)];
+					$('#tip-text').text(tip_text);
+					tip.open();
+				}
+			}
+	 	};
+
+		const voiceStart = () => {
+			speaking_text = "";
+			try {
+				recognition.start();
+			} catch(err) {
+				$('#main-tip-text').text("Failed to start recognition: " + err);
+				if(!tip.isOpen) {
+					tip.open();
+				}
+			}
+			$($speaking_icon).addClass("white-ripple");
+		};
+
+		const voiceOnResult = event => {
+			for (const res of event.results) {
+				const text = res[0].transcript;
+				if (res.isFinal) {
+					speaking_text = text;
+					voiceStop();
+				} 
+			}
+		};
+          
+		
+		recognition.continuous = true;
+		recognition.interimResults = true;
+		recognition.addEventListener("result", voiceOnResult);
+		recognition.addEventListener('error', (event) => {
+			$('#main-tip-text').text(`Speech recognition error detected: ${event.error}`);
+			if(!tip.isOpen) {
+				tip.open();
+			}
+		});
+	
+		$speaking_btn.on("click", e => {
+			e.preventDefault();
+			if(listening) {
+				listening = false;
+				voiceStop(false);
+			} else {
+				listening = true;
+			  voiceStart();
+			}
+		});
+	} else {
+		$('#main-dialog-alert-text').text('Speech recognition is not supprted by the browser.');
+		dialog.open();
+	}
+	
+	
+}
+*/

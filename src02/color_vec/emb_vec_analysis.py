@@ -1,0 +1,108 @@
+import re
+import numpy as np
+from itertools import combinations
+
+def str2rgb(s):
+    nums = re.findall(r"\d+",s)
+    return [int(float(n)) for n in nums]
+
+def str2list(s):
+    nums = re.findall(r"-?\d+\.\d+",s)
+    return [float(n) for n in nums]
+
+with open("lists/color_embbedding.txt","r",encoding="utf-8") as f:
+    color_list = f.readlines()
+color_list = [c for c in color_list if c]
+colors = [c.split(":")[0] for c in color_list]
+hexs = [c.split(":")[1].split("|")[0] for c in color_list]
+rgbs = np.array([np.array(str2rgb(c.split(":")[1].split("|")[1].split("$")[0])) for c in color_list])
+vecs = [c.split(":")[1].split("|")[1].split("$")[1] for c in color_list]
+vecs = [np.array(str2list(v)) for v in vecs]
+
+def add_vec(v1,v2):
+    return (v1+v2)/2
+
+def cos_sim(v1, v2):
+    v1 = v1+0.000000001
+    v2 = v2+0.000000001
+    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+def cossim_list(vs,v1):
+    cossim = []
+    for v2 in vs:
+        cossim.append(cos_sim(v1,v2))
+    return cossim
+
+def most_similar(v1,vs):
+    cossim = cossim_list(vs,v1)
+    i = np.argmax(cossim)
+    max_sim = cossim[i]
+    return i, max_sim
+
+def color_add(color01, color02, log=True):
+    v1 = rgbs[colors.index(color01)]
+    v2 = rgbs[colors.index(color02)]
+    w1 = vecs[colors.index(color01)]
+    w2 = vecs[colors.index(color02)]
+    v3 = add_vec(v1,v2)
+    w3 = add_vec(w1,w2)
+    vi,vs = most_similar(v3,rgbs)
+    wi,ws = most_similar(w3,vecs)
+    if log: print(color01,"+",color02,"=","RGB:",colors[vi],"W2V:",colors[wi])
+    return True if vi==wi else False
+
+def nearest(color,rgbs,n=-5,log=True):
+    cossim = cossim_list(rgbs,rgbs[colors.index(color)])
+    inds = np.argpartition(cossim,n)[n:]
+    sims = np.array(cossim)[inds]
+    if log: print("Most Similar Color: ",color)
+    col = []
+    for i in range(len(inds)):
+        if log: print(sims[i],colors[inds[i]])
+        col.append(colors[inds[i]])
+    return col
+
+def nearest_vec(vec,rgbs,n=-5,log=True):
+    cossim = cossim_list(rgbs,vec)
+    inds = np.argpartition(cossim,n)[n:]
+    sims = np.array(cossim)[inds]
+    col = []
+    for i in range(len(inds)):
+        if log: print(sims[i],colors[inds[i]])
+        col.append(colors[inds[i]])
+    return col 
+
+def overlap(x,y,n=2):
+    return True if len(set(x).intersection(set(y)))>=2 else False
+
+def color_add_nearest(color01,color02,n=-5,log=True):
+    v1 = rgbs[colors.index(color01)]
+    v2 = rgbs[colors.index(color02)]
+    w1 = vecs[colors.index(color01)]
+    w2 = vecs[colors.index(color02)]
+    v3 = add_vec(v1,v2)
+    w3 = add_vec(w1,w2)
+    if log: print(color01,"+",color02,"=")
+    col1 = nearest_vec(v3,rgbs,log=log)
+    if log: print("RGB: ",col1)
+    col2 = nearest_vec(w3,vecs,log=log)
+    if log: print("W2V: ",col2)
+    return overlap(col1,col2)
+
+if __name__ == "__main__":
+    print("The color (adding) relation agreements rate:")
+    comb = combinations(colors, 2)
+    result = [color_add(c1,c2,log=False) for c1,c2 in list(comb)]
+    acc = sum(result)/len(result)
+    print(acc)
+
+    print("The nearest colors overlapping more than 2 agreements rate:")
+    result = [overlap(nearest(c,rgbs,log=False),nearest(c,vecs,log=False)) for c in colors]
+    acc = sum(result)/len(result)
+    print(acc)
+
+    print("The color (adding) relation nearest overlap (more than 2) agreements rate:")
+    comb = combinations(colors, 2)
+    result = [color_add_nearest(c1,c2,log=False) for c1,c2 in list(comb)]
+    acc = sum(result)/len(result)
+    print(acc)

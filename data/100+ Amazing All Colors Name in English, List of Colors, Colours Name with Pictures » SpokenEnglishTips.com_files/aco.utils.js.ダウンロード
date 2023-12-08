@@ -1,0 +1,52 @@
+function acoGuide() {
+  if(acoCurrentMode != "text_chat") {
+    location.href = "/widget?uid=" + userid  + "&mode=text_chat&guide=1";
+    return;
+  }
+  
+  var guide = $.guide({
+    actions: [
+      {
+        element: $('#logo'),
+        content: '<p><i class="material-icons-outlined">arrow_upward</i> Learn English with Aco, the AI. </p><div class="full-screen"><lottie-player src="/wgt/assets/lottie/31548-hello.json"  autoplay loop></lottie-player></div>',
+        offsetX: 0,
+        offsetY: 60
+      },
+      {
+        element: $('#content'),
+        content: '<p>Just chat. Learn fast. <i class="material-icons-outlined">arrow_downward</i> </p><div class="full-screen"><lottie-player src="/wgt/assets/lottie/26439-chat.json" autoplay loop></lottie-player>',
+        offsetX: 10,
+        offsetY: -40
+      },
+      {
+        element: $('#content .message-received'),
+        content: '<p>Tap a message for translation. <i class="material-icons-outlined">arrow_downward</i> </p><div class="full-screen"><lottie-player src="/wgt/assets/lottie/105781-translate.json" autoplay loop></lottie-player>',
+        offsetX: 0,
+        offsetY: -30
+      },
+      {
+        element: $('#tips-btn a'),
+        content: '<p>Tap the light bulb for help. <i class="material-icons-outlined">arrow_downward</i> </p><div class="full-screen"><lottie-player src="/wgt/assets/lottie/107650-idea.json" autoplay loop></lottie-player>',
+        offsetX: -150,
+        offsetY: -30
+      },
+      {
+        element: $('#mode-menu'),
+        content: '<p>Improve your listening. <i class="material-icons-outlined">arrow_upward</i> </p><div class="full-screen"><lottie-player src="/wgt/assets/lottie/17871-speaker.json" autoplay loop></lottie-player>',
+        offsetX: -150,
+        offsetY: 60
+      },
+      {
+        element: $('#logo'),
+        content: '<p><i class="material-icons-outlined">arrow_upward</i> Speak English like a native! </p><div class="full-screen"><lottie-player src="/wgt/assets/lottie/126689-crown.json"  autoplay loop></lottie-player></div>',
+        offsetX: 0,
+        offsetY: 60
+      },
+    ],
+  exitFunc: function() {
+    acoReDisplayLastMsg();
+  },
+  
+  });
+
+}

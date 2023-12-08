@@ -1,0 +1,4 @@
+function logoLoaded(){
+	window.parent.postMessage({'action': 'AcoHideLoader'}, '*');
+	$('#primary-wrapper').show();
+}
